@@ -1,0 +1,48 @@
+x-management: &management
+  build:
+    context: .
+    dockerfile: deploy/Dockerfile
+  env_file: [.env, .management.env]
+  environment: &management-env
+    DATABASE_URL: postgresql+psycopg://monitor:${MONITOR_DB_PASSWORD:?Run monitor.py init}@management-db:5432/monitor
+    LOG_FILE: /var/log/management/events.jsonl
+    OTLP_METRICS_ENDPOINT: ""
+services:
+  management-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: monitor
+      POSTGRES_DB: monitor
+      POSTGRES_PASSWORD: ${MONITOR_DB_PASSWORD:?Run monitor.py init}
+    volumes: ["management-db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U monitor -d monitor"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  management-init:
+    <<: *management
+    command: ["python", "-m", "management.initialize"]
+    depends_on:
+      management-db: {condition: service_healthy}
+    restart: "no"
+  management-web:
+    <<: *management
+    command: ["uvicorn", "management.web:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+    volumes: ["management-logs:/var/log/management"]
+    ports: ["127.0.0.1:8001:8000"]
+    depends_on:
+      management-init: {condition: service_completed_successfully}
+    restart: unless-stopped
+  management-worker:
+    <<: *management
+    command: ["python", "-m", "management.worker"]
+    depends_on:
+      management-init: {condition: service_completed_successfully}
+      prometheus: {condition: service_started}
+      loki: {condition: service_started}
+    restart: unless-stopped
+volumes:
+  management-db:
+  management-logs:
