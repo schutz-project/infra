@@ -1,0 +1,61 @@
+name: employee-portal-p0
+x-app: &app
+  build:
+    context: .
+    dockerfile: deploy/Dockerfile
+  env_file: .env
+  environment: &app-env
+    DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?Run init_env.py}:${POSTGRES_PASSWORD:?Run init_env.py}@db:5432/${POSTGRES_DB:-portal}
+    LOG_FILE: /var/log/portal/events.jsonl
+services:
+  db:
+    restart: unless-stopped
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Run init_env.py}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run init_env.py}
+      POSTGRES_DB: ${POSTGRES_DB:-portal}
+    volumes: ["portal-db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db: {condition: service_healthy}
+    restart: "no"
+  seed:
+    <<: *app
+    command: ["python", "-m", "portal.seed"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    restart: "no"
+  api:
+    <<: *app
+    environment:
+      <<: *app-env
+      OTLP_METRICS_ENDPOINT: ${OTLP_METRICS_ENDPOINT:-}
+    volumes: ["app-logs:/var/log/portal"]
+    depends_on:
+      seed: {condition: service_completed_successfully}
+    restart: unless-stopped
+  nginx:
+    image: nginx:stable-alpine
+    command: ["/bin/sh", "-c", "sh /etc/nginx/rotate-portal-logs.sh & exec /docker-entrypoint.sh nginx -g 'daemon off;'"]
+    environment:
+      PROXY_SECRET: ${PROXY_SECRET:?Run init_env.py}
+      NGINX_ENVSUBST_FILTER: ^PROXY_SECRET$
+    volumes:
+      - ./deploy/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./deploy/rotate-portal-logs.sh:/etc/nginx/rotate-portal-logs.sh:ro
+      - nginx-logs:/var/log/nginx
+    ports: ["127.0.0.1:8080:80", "10.20.10.62:8080:80", "127.0.0.1:8081:8081", "10.20.10.62:8081:8081"]
+    depends_on: [api]
+    restart: unless-stopped
+volumes:
+  portal-db:
+  app-logs:
+  nginx-logs:

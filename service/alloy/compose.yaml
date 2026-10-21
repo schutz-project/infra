@@ -1,0 +1,21 @@
+services:
+  alloy:
+    image: grafana/alloy:v1.9.1
+    user: "0:0"
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - employee-portal-p0_app-logs:/logs/app:ro
+      - employee-portal-p0_nginx-logs:/logs/nginx:ro
+      - alloy-data:/var/lib/alloy/data
+    restart: unless-stopped
+
+volumes:
+  employee-portal-p0_app-logs:
+    external: true
+  employee-portal-p0_nginx-logs:
+    external: true
+  alloy-data:

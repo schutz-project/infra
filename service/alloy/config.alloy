@@ -1,0 +1,17 @@
+local.file_match "portal" {
+  path_targets = [
+    {"__path__" = "/logs/app/events.jsonl", "service" = "portal-api", "environment" = "test"},
+    {"__path__" = "/logs/nginx/portal-access.jsonl", "service" = "portal-nginx", "environment" = "test"},
+  ]
+}
+
+loki.source.file "portal" {
+  targets    = local.file_match.portal.targets
+  forward_to = [loki.write.portal.receiver]
+}
+
+loki.write "portal" {
+  endpoint {
+    url = "http://10.20.20.10:3100/loki/api/v1/push"
+  }
+}
