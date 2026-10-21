@@ -1,0 +1,18 @@
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+  employee_read:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+      authorization:
+        type: Bearer
+        credentials_file: /run/secrets/internal-check-token
+      fail_if_body_not_matches_regexp:
+        - '"check_id"\s*:\s*"employee_read"'

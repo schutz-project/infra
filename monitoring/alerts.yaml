@@ -1,0 +1,27 @@
+groups:
+  - name: portal
+    rules:
+      - alert: PortalProbeFailed
+        expr: probe_success{job=~"portal-health|portal-db-health"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "Portal health probe failed: {{ $labels.check }}"
+      - alert: MonitoringTargetDown
+        expr: up == 0
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "Monitoring scrape failed: {{ $labels.job }}"
+      - alert: PortalTelemetryMissing
+        expr: absent(portal_http_requests)
+        for: 3m
+        labels: {severity: warning}
+        annotations:
+          summary: "Portal OTel request metrics missing"
+      - alert: PortalHighServerErrorRate
+        expr: sum(rate(portal_http_requests{http_response_status_code=~"5.."}[5m])) / clamp_min(sum(rate(portal_http_requests[5m])), 0.001) > 0.05
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: "Portal server error ratio exceeds 5%"

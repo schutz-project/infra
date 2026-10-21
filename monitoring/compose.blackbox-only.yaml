@@ -1,0 +1,13 @@
+services:
+  blackbox:
+    image: prom/blackbox-exporter:v0.26.0
+    command: ["--config.file=/etc/blackbox/config.yaml"]
+    volumes:
+      - ./monitoring/blackbox.yaml:/etc/blackbox/config.yaml:ro
+    secrets:
+      - internal-check-token
+    restart: unless-stopped
+
+secrets:
+  internal-check-token:
+    file: .monitoring-secrets/internal-check-token
