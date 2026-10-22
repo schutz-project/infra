@@ -1,0 +1,66 @@
+name: Infrastructure CI
+
+on:
+  push:
+    branches:
+      - main
+      - "setup/**"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    name: Terraform validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.17.0"
+      - name: Initialize without backend
+        run: terraform init -backend=false -input=false
+      - name: Validate configuration
+        run: terraform validate -no-color
+
+  syntax:
+    name: YAML and shell syntax
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install YAML parser
+        run: python -m pip install PyYAML==6.0.2
+      - name: Check YAML syntax
+        run: |
+          python - <<'PY'
+          import pathlib
+          import subprocess
+          import yaml
+
+          files = subprocess.check_output(
+              ["git", "ls-files", "-z"]
+          ).decode().split("\0")
+          for name in files:
+              if name.endswith((".yaml", ".yml")):
+                  with pathlib.Path(name).open(encoding="utf-8") as stream:
+                      list(yaml.safe_load_all(stream))
+                  print(f"YAML OK: {name}")
+          PY
+      - name: Check shell syntax
+        run: |
+          while IFS= read -r -d '' file; do
+            bash -n "$file"
+            printf 'Shell OK: %s\n' "$file"
+          done < <(git ls-files -z '*.sh')
