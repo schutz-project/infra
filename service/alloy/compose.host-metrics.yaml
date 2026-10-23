@@ -1,0 +1,13 @@
+# 최종 전환용: 기존 Node Exporter가 9100을 사용 중이면 실행하지 마세요.
+services:
+  alloy:
+    network_mode: host
+    pid: host
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=10.20.10.62:9100
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./config.host-metrics.alloy:/etc/alloy/config.alloy:ro
+      - /:/host:ro,rslave

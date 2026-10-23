@@ -1,0 +1,49 @@
+name: Alloy host metrics validation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  alloy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate pinned Alloy configurations
+        run: |
+          for file in config.alloy config.host-metrics.alloy host-metrics-check.alloy; do
+            docker run --rm \
+              -v "$PWD/service/alloy:/etc/alloy:ro" \
+              grafana/alloy:v1.9.1 validate "/etc/alloy/$file"
+          done
+      - name: Validate Compose merge and Prometheus configuration
+        run: |
+          docker compose -p schutz-alloy -f service/alloy/compose.yaml -f service/alloy/compose.host-metrics.yaml config -q
+          docker compose -p schutz-alloy-host-check -f service/alloy/compose.host-metrics-check.yaml config -q
+          docker run --rm --entrypoint /bin/promtool \
+            -v "$PWD/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v3.2.1 check config /etc/prometheus/prometheus.alloy-host.yaml
+      - name: Verify host metrics against runner host
+        run: |
+          set -euo pipefail
+          trap 'docker logs alloy-host-check; docker rm -f alloy-host-check' EXIT
+          docker run -d --name alloy-host-check --network host --pid host \
+            -v /:/host:ro,rslave \
+            -v "$PWD/service/alloy/host-metrics-check.alloy:/etc/alloy/check.alloy:ro" \
+            grafana/alloy:v1.9.1 run --storage.path=/tmp/alloy-check \
+            --server.http.listen-addr=127.0.0.1:19100 /etc/alloy/check.alloy
+          ready=0
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:19100/-/ready >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = 1
+          python3 scripts/check-host-metrics.py

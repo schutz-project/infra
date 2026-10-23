@@ -1,0 +1,30 @@
+local.file_match "portal" {
+  path_targets = [
+    {"__path__" = "/logs/app/events.jsonl", "service" = "portal-api", "environment" = "test"},
+    {"__path__" = "/logs/nginx/portal-access.jsonl", "service" = "portal-nginx", "environment" = "test"},
+  ]
+}
+
+loki.source.file "portal" {
+  targets    = local.file_match.portal.targets
+  forward_to = [loki.write.portal.receiver]
+}
+
+loki.write "portal" {
+  endpoint {
+    url = "http://10.20.20.10:3100/loki/api/v1/push"
+  }
+}
+
+// 기존 로그 수집을 유지하면서 호스트 메트릭을 노출합니다.
+prometheus.exporter.unix "host" {
+  rootfs_path              = "/host"
+  procfs_path              = "/host/proc"
+  sysfs_path               = "/host/sys"
+  udev_data_path           = "/host/run/udev/data"
+  include_exporter_metrics = true
+
+  filesystem {
+    mount_points_exclude = "^/(dev|proc|sys|var/lib/docker/.+|var/lib/containers/storage/.+)($|/)"
+  }
+}
