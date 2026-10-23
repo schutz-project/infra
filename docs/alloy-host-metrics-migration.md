@@ -91,6 +91,35 @@ python3 /path/to/check-host-metrics.py --url http://10.20.10.62:9100/api/v0/comp
 
 ## 검증 상태와 제한
 
-로컬 Python 컴파일·YAML 구문 검증을 수행했다. 이 작성 환경에는 Docker가 없어 Alloy v1.9.1 실행 검증은 GitHub CI에서 수행한다. CI가 통과해도 EC2 실측·Loki 도착·Prometheus 전환은 별도 확인이 필요하다. 기존 에이전트 제거와 서버 적용은 아직 수행하지 않았다.
+### 실제 적용 결과 — 2026-10-24 (한국 시각)
+
+사용자가 서비스/모니터링 EC2에서 실행한 출력과 관리자 화면으로 확인했다. 작성 에이전트가 AWS에 직접 접속한 결과는 아니다.
+
+- GitHub CI: 고정 Alloy v1.9.1 설정 검증, Compose 병합·Prometheus 설정 검사, Linux 호스트 비교 검사 통과.
+- 서비스 EC2 실측: CPU 2개 식별자, 전체/가용 메모리, 루트 파일시스템 크기, ens5와 호스트 네트워크 인터페이스 일치. 필수 cpu/meminfo/filesystem/netdev 수집 성공. ALLOY_HOST_METRICS_VERIFIED 확인.
+- 서비스 전환: 실제 서버의 기존 로그 config에 unix exporter를 추가하고 Compose override 적용. ALLOY_SERVICE_SWITCH_OK와 포털 HTTP 정상 확인.
+- Prometheus: 실제 활성 파일 /opt/schutz-monitoring/monitoring/prometheus.ec2.yaml에 metrics_path를 추가하고 promtool 검증 후 SIGHUP 적용. 새 scrape URL health=up, lastError 비어 있음, job/instance 유지. PROMETHEUS_ALLOY_SWITCH_OK 확인.
+- 대시보드: CPU 2.35%, 메모리 21.88%, 루트 디스크 21.47% 표시. 최근 Nginx HTTP 200 로그 확인.
+- 기존 schutz-node-exporter: running=false, restart=no. NODE_EXPORTER_RETIRED 확인. 컨테이너와 이미지·백업은 삭제하지 않고 복구용 보존.
+- 실제 적용한 compose.host-metrics.yaml은 의미상 동일한 JSON 문법으로 작성했다. 운영 명령에 원본 Compose와 이 override를 모두 포함해야 한다.
+
+### 실행 중 확인한 문제
+
+처음에는 서비스 서버 전환이 실행되지 않은 상태에서 모니터링 설정만 변경해 새 경로 수집 확인에 실패했다. Prometheus 원본 설정으로 복구 후 기존 /metrics의 up 상태를 확인했다. 이후 호스트명을 확인하고 서비스 → 모니터링 순서로 적용해 성공했다. 시간 문자열 해석 문제는 Python 3.12.3 검사로 배제했다.
+
+docker cp로 복사한 promtool 검사 파일은 root 전용 권한 때문에 Prometheus 사용자가 읽지 못했다. 컨테이너 내부 임시 설정 파일만 chmod 644 후 검사했다. 운영 원본 파일 권한을 무조건 완화하지 않는다.
+
+### 백업 및 복구 위치
+
+- 서비스: /opt/schutz/alloy/.node-to-alloy-backup/ — 원본 compose/config, 기존 Node Exporter inspect 기록, rollback.sh, 새 metrics 확인 파일.
+- 모니터링: /opt/schutz-monitoring/.alloy-host-migration/ — original.yaml과 candidate.yaml.
+- 서비스 rollback.sh는 restart=no 변경 전에 작성됐다. 완전 복구 시 node-exporter.json에 보존한 기존 RestartPolicy도 복원해야 한다. 알려지지 않은 정책을 임의로 설정하지 않는다.
+- 두 서버 원본 설정 복구와 Prometheus SIGHUP은 함께 수행한다. 서비스만 복구하면 Prometheus가 Alloy 전용 경로를 계속 요청하므로 지표가 끊긴다.
+
+### 남은 확인
+
+최종 Alloy 경로로 전환한 이후 호스트 전체 비교 검사 재실행, 최소 3회 최신 scrape/5분 CPU rate 확인, 최신 앱 이벤트 로그와 로그인 수집, 전환 중 생성됐을 수 있는 사건 확인은 별도 점검 대상으로 남긴다. 최종 화면에서 확인한 로그는 Nginx 로그이므로 앱 로그까지 확인했다고 기록하지 않는다.
+
+management-web의 “Node Exporter로 수집한” 안내 문구는 현재 구현에 맞춰 별도 수정해야 한다. OTel SDK/별도 Collector, Grafana 통합과 기존 Node Exporter 컨테이너 삭제는 이번 적용에 포함하지 않았다.
 
 근거: grafana/alloy v1.9.1의 prometheus.exporter.unix 문서 및 exporter HTTP handler 구현. 앱 OTel SDK/Collector 통합은 이 PR의 범위가 아니다.
