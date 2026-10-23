@@ -1,0 +1,16 @@
+# 임시 검증 전용: 로그를 읽거나 Loki로 전송하지 않습니다.
+services:
+  host-metrics-check:
+    image: grafana/alloy:v1.9.1
+    user: "0:0"
+    network_mode: host
+    pid: host
+    command:
+      - run
+      - --storage.path=/tmp/alloy-check
+      - --server.http.listen-addr=127.0.0.1:19100
+      - /etc/alloy/host-metrics-check.alloy
+    volumes:
+      - ./host-metrics-check.alloy:/etc/alloy/host-metrics-check.alloy:ro
+      - /:/host:ro,rslave
+    restart: "no"
