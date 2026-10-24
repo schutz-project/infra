@@ -1,0 +1,23 @@
+name: Alloy OTel compatibility
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate pinned Alloy and Compose configurations
+        run: |
+          docker run --rm -v "$PWD/monitoring/alloy-otel.alloy:/etc/alloy/config.alloy:ro" grafana/alloy:v1.9.1 validate /etc/alloy/config.alloy
+          docker compose -p schutz-monitoring -f monitoring/compose.alloy-otel.yaml config -q
+          docker compose -p schutz-monitoring -f monitoring/compose.prometheus-only.yaml -f monitoring/compose.prometheus-remote-write.yaml config -q
+      - name: Compare legacy and Alloy OTLP pipelines
+        run: python3 scripts/verify-otel-alloy.py

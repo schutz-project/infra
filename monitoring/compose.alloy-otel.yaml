@@ -1,0 +1,23 @@
+services:
+  alloy-otel:
+    image: grafana/alloy:v1.9.1
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:8889
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./monitoring/alloy-otel.alloy:/etc/alloy/config.alloy:ro
+      - alloy-otel-data:/var/lib/alloy/data
+    ports:
+      - "10.20.20.10:4318:4318"
+    networks:
+      default:
+        aliases: [otel-collector]
+    restart: unless-stopped
+volumes:
+  alloy-otel-data:
+networks:
+  default:
+    external: true
+    name: schutz-monitoring_default
