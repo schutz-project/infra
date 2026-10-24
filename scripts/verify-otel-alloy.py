@@ -141,6 +141,15 @@ with tempfile.TemporaryDirectory(prefix='schutz-otel-ci-') as directory:
         else:
             print('기존:', baseline)
             print('후보:', candidate)
+            print('후보 전체 지표:', get('http://127.0.0.1:18091/api/v1/query?' +
+                  urllib.parse.urlencode({'query': '{job="portal-otel-candidate"}'})))
+            print('전체 이름:', get('http://127.0.0.1:18091/api/v1/label/__name__/values'))
+            address = json.loads(docker('inspect', PREFIX + '-alloy'))[0]['NetworkSettings']['Networks'][NETWORK]['IPAddress']
+            with OPENER.open(f'http://{address}:8889/metrics', timeout=10) as response:
+                diagnostic = response.read().decode()
+            print('후보 처리 통계:', '\n'.join(line for line in diagnostic.splitlines()
+                  if not line.startswith('#') and any(word in line for word in
+                  ('accepted_metric', 'sent_sample', 'dropped', 'failed', 'queue_', 'exporter_sent'))))
             raise AssertionError('기존 Collector와 Alloy의 저장 지표 불일치')
     finally:
         for name in reversed(CREATED):
