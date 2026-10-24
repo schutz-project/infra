@@ -62,7 +62,7 @@ SDK → 같은 OTLP HTTP 4318 → 모니터링 Alloy의 memory_limiter → batch
 5. 기존 compose.otel-only.yaml 자리에 Alloy Compose를 배치했다. 서비스 키 otel-collector, 사설 IP의 4318 바인딩, 기존 Docker 네트워크를 유지해 같은 컨테이너를 Alloy 이미지로 재생성했다. 이전 Collector 컨테이너 자체가 별도로 보존되는 방식은 아니다. 복구는 원래 Compose와 기존 이미지로 재생성한다.
 6. 연결 중단에 대비한 5분 자동 복구 타이머를 등록하고 전환했다. 전환 후 시각보다 새로운 앱 메트릭 7종을 확인한 뒤 타이머를 해제했다. OTEL_ALLOY_LIVE_METRICS_OK, OTEL_COLLECTOR_TO_ALLOY_SWITCH_OK 및 이미지 grafana/alloy:v1.9.1, running=true를 확인했다.
 7. 복구 스크립트는 준비 경로의 rollback-collector.sh 이다. Collector 교체 실패 시 기존 Compose로 수집기를 복원한다. 이 스크립트는 Prometheus receiver 플래그까지 제거하는 전체 복구는 아니다.
-8. 기존 배포 파일 8개의 경로를 유지하는 방식으로 적용했다. 관리 서비스 전체 Compose 병합 검사와 Blackbox·호스트 지표·Loki 로그·관리 화면의 최종 확인은 후속 점검에서 수행한다.
+8. 기존 배포 파일 8개의 경로를 유지하는 방식으로 적용했다. 후속 통합 점검에서 관리 서비스 전체 Compose 병합 검사, 관리 웹 /health, Blackbox·호스트 지표·앱 지표·Loki 로그를 확인했다. 브라우저에서 관리자 화면의 표시 상태를 확인하는 작업은 남아 있다.
 
 FastAPI 내부 SDK, 서비스 서버 Alloy, management-web 및 management-worker의 코드는 변경하지 않았다.
 
@@ -85,4 +85,21 @@ FastAPI 내부 SDK, 서비스 서버 Alloy, management-web 및 management-worker
 
 ## 상태
 
-모니터링 서버의 Collector를 Alloy로 교체했고, 기존 Prometheus 볼륨 및 전환 후 앱 지표 7종의 새 표본을 확인했다. 최종 통합 점검과 PR 병합은 아직 완료되지 않았다.
+모니터링 서버의 Collector를 Alloy로 교체했고, 기존 Prometheus 볼륨 및 전환 후 앱 지표 7종의 새 표본을 확인했다. 서버 통합 점검은 완료됐으며, 관리자 화면 표시 확인과 PR 병합은 남아 있다.
+
+## 전환 후 통합 점검 결과
+
+사용자가 모니터링 서버에서 실행한 읽기 전용 점검 결과다.
+
+- 관리 서비스의 기존 배포 파일 8개 유지 및 전체 Compose 병합 검사 통과.
+- 병합된 설정에서 otel-collector 이미지가 grafana/alloy:v1.9.1이고 Prometheus receiver 플래그가 유지됨을 확인.
+- 관리 웹 /health 정상 응답.
+- portal-otel, ec2-node, portal-health, portal-db-health의 수집 상태 up=1 확인.
+- proxy, app, database의 probe_success=1 확인.
+- portal_http_requests, portal_http_duration_bucket/sum/count, portal_db_duration_bucket/sum/count의 마지막 표본이 모두 약 30.7초 전으로, 점검 기준 90초 이내임을 확인.
+- Loki에서 최근 5분의 portal-api 로그 존재 확인.
+- 최종 출력: OTEL_ALLOY_INTEGRATION_VERIFIED.
+
+초기 통합 점검의 여러 지표를 한 번에 처리하는 PromQL은 HTTP 422를 반환했다. 지표별 max(time() - timestamp(metric{job="portal-otel"})) 조회로 수정해 위 갱신 상태를 확인했다. 이 쿼리 오류 때문에 서버를 재배포하거나 수집기 설정을 되돌리지는 않았다.
+
+이 결과는 관측 시점의 정상 수집을 확인한 것이다. 장시간 안정성, 실제 장애 시 복구 성공 및 관리 서비스의 후속 자동 배포 실행까지 검증한 것으로 표현하지 않는다.
