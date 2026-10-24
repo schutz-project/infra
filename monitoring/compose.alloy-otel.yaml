@@ -1,5 +1,5 @@
 services:
-  alloy-otel:
+  otel-collector:
     image: grafana/alloy:v1.9.1
     command:
       - run
