@@ -1,0 +1,85 @@
+otelcol.receiver.otlp "portal" {
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+  output {
+    metrics = [otelcol.processor.memory_limiter.portal.input]
+  }
+}
+
+otelcol.processor.memory_limiter "portal" {
+  check_interval = "1s"
+  limit          = "256MiB"
+  spike_limit    = "64MiB"
+  output {
+    metrics = [otelcol.processor.batch.portal.input]
+  }
+}
+
+otelcol.processor.batch "portal" {
+  output {
+    metrics = [otelcol.processor.transform.portal.input]
+  }
+}
+
+// 기존 Collector의 메트릭 이름과 scope 라벨을 보존합니다.
+otelcol.processor.transform "portal" {
+  error_mode = "propagate"
+  metric_statements {
+    context = "metric"
+    statements = [
+      `replace_pattern(metric.name, "[^a-zA-Z0-9_:]", "_")`,
+    ]
+  }
+  metric_statements {
+    context = "datapoint"
+    statements = [
+      `set(datapoint.attributes["otel_scope_name"], instrumentation_scope.name) where instrumentation_scope.name != ""`,
+      `set(datapoint.attributes["otel_scope_version"], instrumentation_scope.version) where instrumentation_scope.version != ""`,
+    ]
+  }
+  output {
+    metrics = [otelcol.exporter.prometheus.portal.input]
+  }
+}
+
+otelcol.exporter.prometheus "portal" {
+  add_metric_suffixes = false
+  forward_to         = [prometheus.relabel.portal.receiver]
+}
+
+// 기존 Prometheus scrape의 job/instance와 충돌 라벨 보존 규칙을 유지합니다.
+prometheus.relabel "portal" {
+  forward_to = [prometheus.remote_write.portal.receiver]
+  // Prometheus 3의 scrape와 같은 정수 버킷 경계 표기를 유지합니다.
+  rule {
+    source_labels = ["le"]
+    regex         = "(-?[0-9]+)"
+    target_label  = "le"
+    replacement   = "${1}.0"
+  }
+  rule {
+    source_labels = ["job"]
+    regex         = "(.+)"
+    target_label  = "exported_job"
+  }
+  rule {
+    source_labels = ["instance"]
+    regex         = "(.+)"
+    target_label  = "exported_instance"
+  }
+  rule {
+    target_label = "job"
+    replacement  = "portal-otel"
+  }
+  rule {
+    target_label = "instance"
+    replacement  = "otel-collector:8889"
+  }
+}
+
+prometheus.remote_write "portal" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}

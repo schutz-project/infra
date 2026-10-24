@@ -1,0 +1,10 @@
+# 원본 compose.prometheus-only.yaml 뒤에 적용합니다.
+# 기존 loopback 9090 바인딩과 데이터 볼륨을 유지합니다.
+services:
+  prometheus:
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --storage.tsdb.retention.size=2GB
+      - --web.enable-remote-write-receiver
