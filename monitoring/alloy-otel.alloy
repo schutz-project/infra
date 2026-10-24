@@ -18,6 +18,27 @@ otelcol.processor.memory_limiter "portal" {
 
 otelcol.processor.batch "portal" {
   output {
+    metrics = [otelcol.processor.transform.portal.input]
+  }
+}
+
+// 기존 Collector의 메트릭 이름과 scope 라벨을 보존합니다.
+otelcol.processor.transform "portal" {
+  error_mode = "propagate"
+  metric_statements {
+    context = "metric"
+    statements = [
+      `replace_pattern(name, "[^a-zA-Z0-9_:]", "_")`,
+    ]
+  }
+  metric_statements {
+    context = "datapoint"
+    statements = [
+      `set(attributes["otel_scope_name"], instrumentation_scope.name) where instrumentation_scope.name != ""`,
+      `set(attributes["otel_scope_version"], instrumentation_scope.version) where instrumentation_scope.version != ""`,
+    ]
+  }
+  output {
     metrics = [otelcol.exporter.prometheus.portal.input]
   }
 }
