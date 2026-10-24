@@ -52,10 +52,23 @@ jobs:
           files = subprocess.check_output(
               ["git", "ls-files", "-z"]
           ).decode().split("\0")
+          class ComposeSafeLoader(yaml.SafeLoader):
+              pass
+
+          # Docker Compose supports !override; treat the tagged value as its underlying YAML node.
+          def construct_override(loader, node):
+              if isinstance(node, yaml.SequenceNode):
+                  return loader.construct_sequence(node)
+              if isinstance(node, yaml.MappingNode):
+                  return loader.construct_mapping(node)
+              return loader.construct_scalar(node)
+
+          ComposeSafeLoader.add_constructor("!override", construct_override)
+
           for name in files:
               if name.endswith((".yaml", ".yml")):
                   with pathlib.Path(name).open(encoding="utf-8") as stream:
-                      list(yaml.safe_load_all(stream))
+                      list(yaml.load_all(stream, Loader=ComposeSafeLoader))
                   print(f"YAML OK: {name}")
           PY
       - name: Check shell syntax
