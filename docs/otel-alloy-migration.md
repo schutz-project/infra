@@ -62,7 +62,7 @@ SDK → 같은 OTLP HTTP 4318 → 모니터링 Alloy의 memory_limiter → batch
 5. 기존 compose.otel-only.yaml 자리에 Alloy Compose를 배치했다. 서비스 키 otel-collector, 사설 IP의 4318 바인딩, 기존 Docker 네트워크를 유지해 같은 컨테이너를 Alloy 이미지로 재생성했다. 이전 Collector 컨테이너 자체가 별도로 보존되는 방식은 아니다. 복구는 원래 Compose와 기존 이미지로 재생성한다.
 6. 연결 중단에 대비한 5분 자동 복구 타이머를 등록하고 전환했다. 전환 후 시각보다 새로운 앱 메트릭 7종을 확인한 뒤 타이머를 해제했다. OTEL_ALLOY_LIVE_METRICS_OK, OTEL_COLLECTOR_TO_ALLOY_SWITCH_OK 및 이미지 grafana/alloy:v1.9.1, running=true를 확인했다.
 7. 복구 스크립트는 준비 경로의 rollback-collector.sh 이다. Collector 교체 실패 시 기존 Compose로 수집기를 복원한다. 이 스크립트는 Prometheus receiver 플래그까지 제거하는 전체 복구는 아니다.
-8. 기존 배포 파일 8개의 경로를 유지하는 방식으로 적용했다. 후속 통합 점검에서 관리 서비스 전체 Compose 병합 검사, 관리 웹 /health, Blackbox·호스트 지표·앱 지표·Loki 로그를 확인했다. 브라우저에서 관리자 화면의 표시 상태를 확인하는 작업은 남아 있다.
+8. 기존 배포 파일 8개의 경로를 유지하는 방식으로 적용했다. 후속 통합 점검에서 관리 서비스 전체 Compose 병합 검사, 관리 웹 /health, Blackbox·호스트 지표·앱 지표·Loki 로그를 확인했다. 관리자 화면 접속도 확인했다. 이후 별도 Management Web PR #8에서 로그인 확인 대기 화면과 새로고침 시 위치 복원을 수정했으며, 사용자가 새로고침 동작을 확인했다. 모든 차트의 표시 수치에 대한 별도 육안 검증을 완료한 것으로 해석하지 않는다.
 
 FastAPI 내부 SDK, 서비스 서버 Alloy, management-web 및 management-worker의 코드는 변경하지 않았다.
 
@@ -85,7 +85,7 @@ FastAPI 내부 SDK, 서비스 서버 Alloy, management-web 및 management-worker
 
 ## 상태
 
-모니터링 서버의 Collector를 Alloy로 교체했고, 기존 Prometheus 볼륨 및 전환 후 앱 지표 7종의 새 표본을 확인했다. 서버 통합 점검은 완료됐으며, 관리자 화면 표시 확인과 PR 병합은 남아 있다.
+모니터링 서버의 Collector를 Alloy로 교체했고, 기존 Prometheus 볼륨 및 전환 후 앱 지표 7종의 새 표본을 확인했다. 서버 통합 점검과 관리자 화면 접속·새로고침 동작 확인을 마쳤다. 이 문서를 포함한 PR 병합으로 저장소 반영을 마무리한다.
 
 ## 전환 후 통합 점검 결과
 
@@ -102,4 +102,15 @@ FastAPI 내부 SDK, 서비스 서버 Alloy, management-web 및 management-worker
 
 초기 통합 점검의 여러 지표를 한 번에 처리하는 PromQL은 HTTP 422를 반환했다. 지표별 max(time() - timestamp(metric{job="portal-otel"})) 조회로 수정해 위 갱신 상태를 확인했다. 이 쿼리 오류 때문에 서버를 재배포하거나 수집기 설정을 되돌리지는 않았다.
 
-이 결과는 관측 시점의 정상 수집을 확인한 것이다. 장시간 안정성, 실제 장애 시 복구 성공 및 관리 서비스의 후속 자동 배포 실행까지 검증한 것으로 표현하지 않는다.
+이 결과는 관측 시점의 정상 수집을 확인한 것이다. 장시간 안정성과 실제 장애 시 복구 성공까지 검증한 것으로 표현하지 않는다. 이후 관리 웹의 자동 배포는 아래 실행에서 별도로 성공했다.
+
+## 후속 관리 웹 수정과 배포
+
+- 저장소: management-web. infra의 Alloy 전환과 별도 변경이다.
+- PR: https://github.com/schutz-project/management-web/pull/8 — 병합 완료.
+- 자동 배포: https://github.com/schutz-project/management-web/actions/runs/40094073032 — 테스트·이미지 게시·EC2 배포 성공.
+- 인증 확인 전에 로그인 화면을 보여주던 동작을 대기 화면으로 수정하고, 처리 이력·페이지·사건 상세 위치를 URL에서 복원한다.
+- 서버의 manage.html/manage.js bind mount 원본은 배포 이미지에서 파일을 추출해 갱신했다. 원본 백업은 /opt/schutz-monitoring/.release-backups/session-refresh-yprld4p9 에 보존했다.
+- MANAGEMENT_SESSION_REFRESH_FIX_APPLIED 및 실제 HTTP 응답 파일 일치를 확인했다. 사용자가 새로고침 문제 해소를 보고했다. 주소창 Enter로 문서 전체를 다시 불러올 때 잠깐 보이는 로그인 상태 확인 문구는 의도한 동작이다.
+- 서버에서 비공개 GitHub 저장소의 raw 파일에 인증 없이 접근하면 404가 발생하므로, 향후 동일 방식의 다운로드를 사용하지 않는다. GitHub CLI 인증이나 이미 배포된 이미지에서 추출하는 경로를 사용한다.
+- bind mount가 이미지 파일보다 우선하므로 이후 해당 화면 파일 변경 시 마운트 원본도 함께 갱신해야 한다. 이를 자동화한 배포 수정까지 완료한 것은 아니다.
