@@ -83,6 +83,8 @@ with tempfile.TemporaryDirectory(prefix='schutz-otel-ci-') as directory:
             volumes=[(alloy, '/etc/alloy/config.alloy')],
             publish=['127.0.0.1:14319:4318'])
 
+        # 신규 WAL 초기 재생을 마친 뒤 실제 앱처럼 연속된 표본을 전송합니다.
+        time.sleep(5)
         stamp = time.time_ns()
         attributes = [
             {'key': 'http.route', 'value': {'stringValue': '/health'}},
@@ -149,7 +151,7 @@ with tempfile.TemporaryDirectory(prefix='schutz-otel-ci-') as directory:
                 diagnostic = response.read().decode()
             print('후보 처리 통계:', '\n'.join(line for line in diagnostic.splitlines()
                   if not line.startswith('#') and any(word in line for word in
-                  ('accepted_metric', 'sent_sample', 'dropped', 'failed', 'queue_', 'exporter_sent'))))
+                  ('metric_points', 'samples_', 'dropped', 'failed', 'queue_', 'exporter_sent'))))
             raise AssertionError('기존 Collector와 Alloy의 저장 지표 불일치')
     finally:
         for name in reversed(CREATED):
