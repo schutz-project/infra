@@ -28,14 +28,14 @@ otelcol.processor.transform "portal" {
   metric_statements {
     context = "metric"
     statements = [
-      `replace_pattern(name, "[^a-zA-Z0-9_:]", "_")`,
+      `replace_pattern(metric.name, "[^a-zA-Z0-9_:]", "_")`,
     ]
   }
   metric_statements {
     context = "datapoint"
     statements = [
-      `set(attributes["otel_scope_name"], instrumentation_scope.name) where instrumentation_scope.name != ""`,
-      `set(attributes["otel_scope_version"], instrumentation_scope.version) where instrumentation_scope.version != ""`,
+      `set(datapoint.attributes["otel_scope_name"], instrumentation_scope.name) where instrumentation_scope.name != ""`,
+      `set(datapoint.attributes["otel_scope_version"], instrumentation_scope.version) where instrumentation_scope.version != ""`,
     ]
   }
   output {
@@ -51,6 +51,13 @@ otelcol.exporter.prometheus "portal" {
 // 기존 Prometheus scrape의 job/instance와 충돌 라벨 보존 규칙을 유지합니다.
 prometheus.relabel "portal" {
   forward_to = [prometheus.remote_write.portal.receiver]
+  // Prometheus 3의 scrape와 같은 정수 버킷 경계 표기를 유지합니다.
+  rule {
+    source_labels = ["le"]
+    regex         = "(-?[0-9]+)"
+    target_label  = "le"
+    replacement   = "${1}.0"
+  }
   rule {
     source_labels = ["job"]
     regex         = "(.+)"
