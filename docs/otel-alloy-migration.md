@@ -113,4 +113,21 @@ FastAPI 내부 SDK, 서비스 서버 Alloy, management-web 및 management-worker
 - 서버의 manage.html/manage.js bind mount 원본은 배포 이미지에서 파일을 추출해 갱신했다. 원본 백업은 /opt/schutz-monitoring/.release-backups/session-refresh-yprld4p9 에 보존했다.
 - MANAGEMENT_SESSION_REFRESH_FIX_APPLIED 및 실제 HTTP 응답 파일 일치를 확인했다. 사용자가 새로고침 문제 해소를 보고했다. 주소창 Enter로 문서 전체를 다시 불러올 때 잠깐 보이는 로그인 상태 확인 문구는 의도한 동작이다.
 - 서버에서 비공개 GitHub 저장소의 raw 파일에 인증 없이 접근하면 404가 발생하므로, 향후 동일 방식의 다운로드를 사용하지 않는다. GitHub CLI 인증이나 이미 배포된 이미지에서 추출하는 경로를 사용한다.
-- bind mount가 이미지 파일보다 우선하므로 이후 해당 화면 파일 변경 시 마운트 원본도 함께 갱신해야 한다. 이를 자동화한 배포 수정까지 완료한 것은 아니다.
+- 당시에는 bind mount가 이미지 파일보다 우선해 별도 갱신이 필요했다. 아래 후속 정리에서 해당 화면 마운트 3개를 제거했다.
+
+## 화면 파일을 이미지에서 제공하도록 정리 — 2026-10-24
+
+수동 화면 파일 복사 대신 기존 이미지 배포·롤백 경로를 그대로 활용하도록 구성했다. management-web 배포 스크립트를 별도로 수정한 변경은 아니다.
+
+- manage.html, manage.js, manage-drafts.js의 호스트 마운트 원본과 실행 이미지의 파일 해시가 모두 일치함을 먼저 확인했다.
+- 서버의 /opt/schutz-monitoring/updates/incident-drafts/compose.incident-drafts.yaml 내용을 {"services":{"management-web":{}}}로 변경했다. 파일 자체는 남겨 기존 배포 파일 8개의 경로를 유지한다.
+- 저장소의 monitoring/compose.incident-drafts.yaml은 이 서버 파일의 최종 내용이다. 단독 실행용 Compose가 아니라 기존 8개 파일에 포함되는 추가 설정이다. 다른 Compose에 정적 파일 마운트가 정의돼 있다면 이 빈 설정만으로 제거되지 않으므로 전체 병합 결과를 검사해야 한다.
+- management-web만 같은 이미지로 재생성했다. /app/static 아래 마운트가 없어지고 관리 로그 볼륨은 유지됨을 확인했다.
+- 전환 전후 /, /static/manage.js, /static/manage-drafts.js의 실제 HTTP 응답 해시가 일치했다.
+- Worker·DB의 컨테이너 ID 유지, Worker 실행 및 DB healthy 상태를 확인했다.
+- 백업: /opt/schutz-monitoring/.release-backups/static-mount-removal-85uaancn/compose.incident-drafts.yaml.
+- 최종 확인 출력: MANAGEMENT_STATIC_IMAGE_SOURCE_ENABLED.
+
+앞으로 화면 변경은 management-web 저장소에 반영해 이미지로 배포한다. 이미지 교체 시 HTML·JavaScript가 함께 바뀌고 이전 이미지 복구 시 해당 이미지의 화면 파일을 사용한다. 실제 서로 다른 화면 버전의 배포·롤백 시험은 이번 파일 일치 및 마운트 제거 검사와 별도다.
+
+복구가 필요하면 위 백업을 원래 Compose 경로에 복원하고, 관리 웹 컨테이너 라벨에 기록된 전체 Compose 파일 목록으로 management-web만 --no-deps --no-build --pull never --force-recreate 옵션을 사용해 재생성한다. 이 구성 복구는 과거 화면 마운트를 다시 사용하게 하므로 일반적인 앱 이미지 롤백과 구별한다. 백업과 기존 마운트 원본 파일은 삭제하지 않았다.
