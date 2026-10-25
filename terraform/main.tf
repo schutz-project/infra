@@ -7,5 +7,5 @@ output "project_name" {
 }
 
 output "description" {
-  value = "SCHUTZ existing AWS infrastructure inventory (read-only data sources)"
+  value = "Terraform first practice"
 }
