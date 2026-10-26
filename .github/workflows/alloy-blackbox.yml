@@ -11,6 +11,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
+      - name: Check release guards and mocked rollback
+        run: python3 -m unittest discover -s tests -p test_blackbox_release.py
       - name: Validate pinned Alloy combined configuration
         run: |
           token=$(mktemp)
