@@ -85,3 +85,11 @@ sudo -n docker start schutz-monitoring-grafana-1
 서버의 전체 Grafana Compose 파일은 아직 이 저장소에 수집되지 않았습니다. 이 문서는 적용 결과를 기록하며 자동 배포를 실행하지 않습니다. 기존 배포 스크립트의 Compose 8개 요구 조건을 유지하기 위해 파일을 삭제하지 않았습니다.
 
 관리자 화면의 Grafana 링크 제거와 알림 역할 분석은 완료했습니다. 연결 현황과 미결정 사항은 alerting-responsibilities.md를 참고하세요. 기존 경보 규칙은 유지합니다.
+
+## 2026-10-26 설정 대조 추가
+
+서버 Grafana의 manual-grafana 프로필, grafana/grafana:12.0.2 이미지, loopback 3000 포트와 Compose restart=unless-stopped를 확인했습니다. 이는 이전 컨테이너 restart=no와 구분합니다. 전체 Grafana 원문·인증 설정은 수집하지 않았으며, 기존 파일은 덮어쓰지 않습니다.
+
+확인한 프로필만 monitoring/compose.grafana-manual-profile.yaml에 별도 보존합니다. 서버에는 이미 반영돼 있으므로 지금 적용하거나 기존 배포 파일 목록에 추가하지 않습니다. 최신 HTTPS Compose는 monitoring/compose.management-https.yaml과 서버 파일 해시가 일치함을 확인했습니다. 위의 원문 미수집 설명은 최초 기록 기준입니다.
+
+세부 매핑·Prometheus 확인 범위·Terraform 전달 사항은 monitoring-simplification-parity-20261026.md를 참고하세요. 이 추가 기록은 서버 재시작이나 설정 변경을 실행하지 않았습니다.
