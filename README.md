@@ -45,7 +45,7 @@ infra/
 | 모니터링 영역 | Prometheus | 서비스 상태 및 메트릭 수집, 경고 규칙 평가 |
 | 모니터링 영역 | Blackbox Exporter | HTTP 응답과 내부 점검 엔드포인트 검사 |
 | 모니터링 영역 | Loki | 로그 저장 및 검색용 백엔드 |
-| 모니터링 영역 | OpenTelemetry Collector | OTLP 메트릭 수신 및 Prometheus 형식 노출 |
+| 모니터링 영역 | Grafana Alloy (컨테이너 이름: otel-collector) | OTLP HTTP 4318 메트릭 수신 및 Prometheus remote_write 전달 |
 | 관리 영역 | 관리 웹/워커/PostgreSQL | 사건 처리 관련 서비스 구성 (Compose 정의 기준) |
 
 Grafana 대시보드 및 Slack 알림은 프로젝트의 운영 목표에 포함되지만, 이 저장소의 현재 파일만으로 완전한 배포·연동 여부를 확정할 수 없습니다.
@@ -67,28 +67,21 @@ Grafana 대시보드 및 Slack 알림은 프로젝트의 운영 목표에 포함
 
 위 시간과 조건은 **Prometheus 경고 규칙** 기준입니다. 프로젝트의 사건 생성/중복 억제 정책(연속 실패 3회 등)과 동일하다고 간주하지 않습니다.
 
-## Terraform — 기존 AWS 인프라 조회 및 문서화
+## Terraform — 기존 AWS 인프라 관리 (2026-10-26)
 
 [Terraform 코드와 상세 사용법 보기](./terraform/README.md)
 
-Terraform 1.17 및 AWS Provider를 사용해 SCHUTZ 프로젝트에서 **이미 구축한 AWS 네트워크 리소스를 조회**하고, 조회 결과를 문서화했습니다. 이 코드는 현재 인프라를 생성하거나 변경하는 IaC 관리 코드가 아닌 **읽기 전용 인프라 조회 코드**입니다.
+기존 AWS 리소스 **14개**를 Terraform으로 Import하여 관리합니다. 새 AWS 리소스를 생성한 작업이 아닙니다.
 
-| 항목 | 현재 작업 |
-| --- | --- |
-| VPC | `10.20.0.0/16` 네트워크 조회 |
-| 서비스 서브넷 | `10.20.10.0/24` 조회 |
-| 모니터링 서브넷 | `10.20.20.0/24` 조회 |
-| 라우팅 테이블 및 IGW | 연결 정보와 기본 경로 조회 |
-| 보안 그룹 | 서비스·모니터링 보안 그룹 ID 및 이름 조회 |
-| EC2 | AWS CLI로 확인한 인스턴스 ID·사설 IP·서브넷 ID를 정적 출력값으로 기록 |
-| 보안 그룹 규칙 | AWS CLI로 인바운드/아웃바운드 규칙 확인 후 문서화 |
+- 기본 인프라 11개: VPC, 서브넷 2개, IGW, 라우팅 테이블, 연결 2개, 보안 그룹 2개, EC2 2개
+- 인바운드 규칙 3개: Management Web TCP 18001, Loki TCP 3100, OTLP HTTP TCP 4318
+- `terraform/otlp-ingress.tf`: 서비스 보안 그룹에서 모니터링 Alloy 4318 포트로 접근을 허용하는 기존 규칙 Import
+- OTLP Import 결과: `1 imported, 0 added, 0 changed, 0 destroyed`
+- 최종 `terraform plan`: `No changes. Your infrastructure matches the configuration.`
 
-**검증:** `terraform validate` 성공, `terraform plan` 성공. `plan`의 출력값 변경은 실제 AWS 인프라 변경을 의미하지 않습니다.
+**주의:** Terraform State는 로컬에 있으며 GitHub에 올리지 않습니다. 다른 PC에서 적용하기 전에 State 관리 방식을 확인해야 합니다.
 
-**네트워크 주의:** 확인된 기본 라우팅 테이블의 `0.0.0.0/0 → IGW` 경로가 두 서브넷에 연결되어 있습니다. 서비스 서브넷을 프라이빗이라고 단정하지 않고, 퍼블릭 IP·보안 그룹·라우팅 설정을 함께 검토해야 합니다.
-
-**다음 단계:** 기존 리소스의 Terraform 관리 전환이 필요한 경우, 별도 브랜치에서 `import`와 변경 계획을 먼저 검토합니다. 현재 조회 작업에는 `terraform apply`나 `terraform destroy`가 필요하지 않습니다.
-
+**네트워크 주의:** 두 서브넷 모두 IGW 기본 경로가 있는 라우팅 테이블에 연결되어 있으므로 서비스 서브넷이 완전히 프라이빗이라고 단정하지 않습니다.
 
 ## Management Web HTTPS 외부 접속 (2026-10-25)
 
@@ -101,7 +94,7 @@ SSM 포트 포워딩 없이 모니터링 EC2의 Management Web에 접속할 수 
 | 접속 방식 | 모니터링 EC2의 퍼블릭 IPv4 + HTTPS |
 | 외부 포트 | TCP `18001` → 관리 웹 컨테이너 `8000` |
 | HTTPS 설정 | `monitoring/compose.management-https.yaml` 오버레이 |
-| 보안 그룹 | `schutz-monitor-sg`에서 승인된 접속자 공인 IPv4의 `/32`만 허용 |
+| 보안 그룹 | Terraform에 Import된 TCP 18001 규칙은 `0.0.0.0/0` 허용 |
 | 동작 확인 | 허용된 네트워크에서 HTTPS 접속 및 관리자 로그인 성공 |
 | 팀원분 접속 | 요청받은 공인 IPv4에 대한 인바운드 허용 규칙 저장 완료. 실제 원격 로그인은 확인 대기 |
 | DNS 주소 | 로그인 페이지 접근은 확인했으나 Origin/CSRF 설정 문제로 로그인 미완료; 현재는 IP 주소 방식 사용 |
@@ -109,7 +102,7 @@ SSM 포트 포워딩 없이 모니터링 EC2의 Management Web에 접속할 수 
 ### 설정 및 운영 시 주의사항
 
 - **재배포 후 검증:** CI/CD의 ECR → SSM 기반 EC2 배포 시 HTTPS Compose 오버레이와 `ALLOWED_ORIGIN`, `COOKIE_SECURE` 등 실행 설정이 유지되는지 확인합니다. 자동 배포 파이프라인에 HTTPS 오버레이가 포함되어 있는지는 별도 확인이 필요합니다.
-- **접근 제한:** TCP 18001을 `0.0.0.0/0`으로 공개하지 않고, 접속이 필요한 네트워크의 공인 IPv4만 개별 허용합니다.
+- **접근 제한 필요:** 현재 Terraform에 등록된 TCP 18001 규칙은 `0.0.0.0/0`을 허용합니다. 관리자 웹 접근 범위와 인증·HTTPS 설정을 재점검해야 합니다.
 - **인증서:** 현재 자체 서명 인증서를 사용하므로 브라우저 신뢰 경고가 발생할 수 있습니다. 인증서 및 개인키는 저장소에 포함하지 않습니다.
 - **주소 변경:** EC2 중지·시작 등으로 퍼블릭 IPv4가 변경되면 접속 URL, 허용 Origin 및 인증서의 주소 일치 여부를 재검토합니다.
 - **접속 검증:** 팀원분의 네트워크에서 로그인 및 주요 화면 접근을 확인한 뒤 외부 접속 작업을 최종 완료 처리합니다.
