@@ -1,0 +1,31 @@
+name: Alloy Blackbox candidate
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  blackbox-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate pinned Alloy combined configuration
+        run: |
+          token=$(mktemp)
+          trap 'rm -f "$token"' EXIT
+          printf '%s' 'ci-placeholder-not-a-production-token' > "$token"
+          chmod 644 "$token"
+          docker run --rm --network none \
+            -v "$PWD/monitoring/alloy-otel-blackbox.alloy:/etc/alloy/config.alloy:ro" \
+            -v "$PWD/monitoring/blackbox.yaml:/etc/blackbox/config.yaml:ro" \
+            -v "$token:/run/secrets/internal-check-token:ro" \
+            grafana/alloy:v1.9.1 validate /etc/alloy/config.alloy
+      - name: Validate candidate Compose
+        run: docker compose -p schutz-monitoring -f monitoring/compose.alloy-otel-blackbox.yaml config -q
+      - name: Validate Prometheus candidate and existing rules
+        run: |
+          docker run --rm --network none --entrypoint promtool \
+            -v "$PWD/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v3.4.1 check config /etc/prometheus/prometheus.alloy-blackbox.yaml
