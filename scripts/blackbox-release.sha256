@@ -1,0 +1,4 @@
+48075b49f732d8ec1a48f12eaf42a8060940d70d883fbddb9a0e6a6890ed0861  scripts/blackbox-release.py
+7f80abca93a08de5c9868633c2ec5347ec086d76e242acbe6877ee230c056f99  monitoring/alloy-otel-blackbox.alloy
+c5de1f7281ec0acb015f8c1cda089eae9b2073b2237d5c86a5c5b636e0d2f0b3  monitoring/compose.alloy-otel-blackbox.yaml
+89e9c1c1628902ae38b942ab0482c3e9f56474ee010b7d0629e6670302ebb5f2  monitoring/prometheus.alloy-blackbox.yaml
