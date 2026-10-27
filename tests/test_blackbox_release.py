@@ -10,6 +10,19 @@ spec=importlib.util.spec_from_file_location('blackbox_release',Path(__file__).re
 r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
 
 class ReleaseTests(unittest.TestCase):
+    def test_merged_candidate_includes_manual_profiles(self):
+        with patch.object(r,'compose',return_value='{"services":{"blackbox":{"profiles":["manual-blackbox"]}}}') as compose:
+            model=r.merged_candidate(['fixed-stack'])
+        self.assertIn('blackbox',model['services'])
+        self.assertEqual(compose.call_args.args,(['fixed-stack'],'--profile','manual-blackbox','--profile','manual-grafana','config','--format','json'))
+
+    def test_release_manifest_matches_repository_assets(self):
+        import hashlib
+        root=Path(__file__).resolve().parents[1]
+        for line in (root/'scripts/blackbox-release.sha256').read_text().splitlines():
+            digest,path=line.split()
+            self.assertEqual(hashlib.sha256((root/path).read_bytes()).hexdigest(),digest,path)
+
     def snapshot(self,migrated=True):
         at=time.time();out={k:[] for k in ('probe','status','times','durations')}
         for check,job,url in [('proxy','portal-health','http://10.20.10.62:8080/proxy-health'),('app','portal-health','http://10.20.10.62:8080/health'),('database','portal-db-health','http://10.20.10.62:8081/internal/check/employee')]:
@@ -130,3 +143,4 @@ class RestoreTests(unittest.TestCase):
             finally:os.chdir(cwd)
 
 if __name__=='__main__':unittest.main()
+

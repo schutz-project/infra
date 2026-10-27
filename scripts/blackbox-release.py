@@ -16,8 +16,8 @@ import tempfile
 import time
 
 ROOT = Path('/opt/schutz-monitoring')
-BACKUP = ROOT / '.release-backups/blackbox-alloy-20261026'
-UNIT = 'schutz-blackbox-rollback-20261026'
+BACKUP = ROOT / '.release-backups/blackbox-alloy-20261026-retry1'
+UNIT = 'schutz-blackbox-rollback-20261026-retry1'
 PREFIX = 'schutz-monitoring-'
 FILES = ['compose.otel-only.yaml', 'monitoring/alloy-otel.alloy',
          'monitoring/prometheus.ec2.yaml', 'compose.blackbox-only.yaml']
@@ -67,6 +67,12 @@ def compose(paths, *args):
     for path in paths:
         cmd += ['-f', path]
     return call(cmd + list(args), timeout=60)
+
+def merged_candidate(paths):
+    # Include opt-in services when inspecting the complete model.
+    return json.loads(compose(paths, '--profile', 'manual-blackbox',
+                              '--profile', 'manual-grafana',
+                              'config', '--format', 'json'))
 
 def candidates(asset_root, originals):
     contents = {
@@ -325,7 +331,7 @@ def apply(asset_root):
         write_contents(target)
         compose(paths,'config','-q')
         # Confirm same secret and data volume paths via merged model before recreation.
-        merged=json.loads(compose(paths,'config','--format','json'))
+        merged=merged_candidate(paths)
         config=merged['services']['otel-collector']
         if (config['image']!='grafana/alloy:v1.9.1'
                 or 'manual-blackbox' not in merged['services']['blackbox'].get('profiles',[])):
@@ -394,3 +400,4 @@ if __name__=='__main__':
     except Exception as error:
         print('실행 중지:',type(error).__name__,str(error),flush=True)
         sys.exit(1)
+

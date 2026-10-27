@@ -103,3 +103,4 @@ prometheus.exporter.blackbox "portal_check" {
     module  = "employee_read"
   }
 }
+
