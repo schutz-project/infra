@@ -83,3 +83,24 @@ prometheus.remote_write "portal" {
     url = "http://prometheus:9090/api/v1/write"
   }
 }
+// 기존 Blackbox 모듈과 인증 파일을 그대로 사용합니다.
+// 점검은 Prometheus가 이 컴포넌트의 HTTP metrics 경로를 요청할 때 실행됩니다.
+prometheus.exporter.blackbox "portal_check" {
+  config_file = "/etc/blackbox/config.yaml"
+  target {
+    name    = "proxy"
+    address = "http://10.20.10.62:8080/proxy-health"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "app"
+    address = "http://10.20.10.62:8080/health"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "database"
+    address = "http://10.20.10.62:8081/internal/check/employee"
+    module  = "employee_read"
+  }
+}
+

@@ -63,6 +63,13 @@ with tempfile.TemporaryDirectory(prefix='schutz-otel-ci-') as directory:
     prom.write_text('global:\n  scrape_interval: 1s\nscrape_configs:\n'
                     '  - job_name: portal-otel\n    static_configs:\n'
                     '      - targets: [otel-collector:8889]\n')
+    # 통합 운영 Alloy 설정이 참조하는 Blackbox 파일과 인증 파일을
+    # 격리 CI 컨테이너에만 제공하며 실제 운영 비밀값은 사용하지 않습니다.
+    secret_dir = work / 'secrets'
+    secret_dir.mkdir(mode=0o755)
+    test_token = secret_dir / 'internal-check-token'
+    test_token.write_text('ci-only-placeholder-token\\n')
+    test_token.chmod(0o644)
     alloy = work / 'config.alloy'
     alloy.write_text((ROOT / 'monitoring/alloy-otel.alloy').read_text().replace(
         'replacement  = "portal-otel"', 'replacement  = "portal-otel-candidate"'))
@@ -80,7 +87,9 @@ with tempfile.TemporaryDirectory(prefix='schutz-otel-ci-') as directory:
         run('alloy', 'grafana/alloy:v1.9.1', 'run',
             '--storage.path=/tmp/alloy', '--server.http.listen-addr=0.0.0.0:8889',
             '/etc/alloy/config.alloy',
-            volumes=[(alloy, '/etc/alloy/config.alloy')],
+            volumes=[(alloy, '/etc/alloy/config.alloy'),
+                     (ROOT / 'monitoring/blackbox.yaml', '/etc/blackbox/config.yaml'),
+                     (test_token, '/run/secrets/internal-check-token')],
             publish=['127.0.0.1:14319:4318'])
 
         # 신규 WAL 초기 재생을 마친 뒤 실제 앱처럼 연속된 표본을 전송합니다.

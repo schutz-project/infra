@@ -1,9 +1,31 @@
+# 운영 적용 전 검증할 후보입니다. 기존 9개 파일에 자동 추가하지 않습니다.
 services:
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.128.0
-    command: ["--config=/etc/otelcol/config.yaml"]
+    image: grafana/alloy:v1.9.1
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:8889
+      - /etc/alloy/config.alloy
     volumes:
-      - ./monitoring/otel.yaml:/etc/otelcol/config.yaml:ro
+      - ./monitoring/alloy-otel.alloy:/etc/alloy/config.alloy:ro
+      - ./monitoring/blackbox.yaml:/etc/blackbox/config.yaml:ro
+      - alloy-otel-data:/var/lib/alloy/data
+    secrets:
+      - internal-check-token
     ports:
       - "10.20.20.10:4318:4318"
+    networks:
+      default:
+        aliases: [otel-collector]
     restart: unless-stopped
+volumes:
+  alloy-otel-data:
+secrets:
+  internal-check-token:
+    file: .monitoring-secrets/internal-check-token
+networks:
+  default:
+    external: true
+    name: schutz-monitoring_default
+
