@@ -1,6 +1,6 @@
 services:
   blackbox:
-    profiles: ["manual-blackbox"]
+    profiles: [manual-blackbox]
     image: prom/blackbox-exporter:v0.26.0
     command: ["--config.file=/etc/blackbox/config.yaml"]
     volumes:
