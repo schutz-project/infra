@@ -175,8 +175,13 @@ def samples_ok(data, expected_labels, after, migrated):
             for t in targets):
         return False
     up = data['up']
-    if not (len(up) == 1 and up[0]['metric'].get('instance') == 'blackbox:9115'
-            and float(up[0]['value'][1]) == 1):
+    # The legacy exporter scrape is required before migration only.
+    # After migration the duplicate blackbox-exporter job is intentionally absent.
+    if migrated:
+        if up:
+            return False
+    elif not (len(up) == 1 and up[0]['metric'].get('instance') == 'blackbox:9115'
+              and float(up[0]['value'][1]) == 1):
         return False
     for name in METRICS:
         rows = data[name]
