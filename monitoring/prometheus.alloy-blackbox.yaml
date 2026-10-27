@@ -49,3 +49,4 @@ scrape_configs:
     metrics_path: /api/v0/component/prometheus.exporter.unix.host/metrics
     static_configs:
       - targets: [10.20.10.62:9100]
+
