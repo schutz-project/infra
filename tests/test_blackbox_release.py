@@ -28,12 +28,21 @@ class ReleaseTests(unittest.TestCase):
         for check,job,url in [('proxy','portal-health','http://10.20.10.62:8080/proxy-health'),('app','portal-health','http://10.20.10.62:8080/health'),('database','portal-db-health','http://10.20.10.62:8081/internal/check/employee')]:
             labels={'check':check,'job':job,'instance':url}
             for key,value in [('probe',1),('status',200),('times',at),('durations',0.1)]:out[key].append({'metric':dict(labels),'value':[at,str(value)]})
-        out['up']=[{'metric':{'job':'blackbox-exporter','instance':'blackbox:9115'},'value':[at,'1']}]
+        out['up']=[] if migrated else [{'metric':{'job':'blackbox-exporter','instance':'blackbox:9115'},'value':[at,'1']}]
         for key in r.METRICS:out[key]=[{'metric':{},'value':[at,str(at)]}]
         base='http://otel-collector:8889/api/v0/component/prometheus.exporter.blackbox.portal_check/metrics' if migrated else 'http://blackbox:9115/probe'
         out['targets']=[{'labels':dict(x['metric']),'health':'up','scrapeUrl':base+'?module=http_2xx'} for x in out['probe']]
         labels=json.loads(json.dumps([list(k) for k in sorted(r.index(out['probe']))]))
         return out,labels,at-1
+
+    def test_migrated_candidate_rejects_legacy_scrape_and_rollback_requires_it(self):
+        migrated, labels, after = self.snapshot(migrated=True)
+        self.assertTrue(r.samples_ok(migrated, labels, after, True))
+        migrated['up'] = [{'metric': {'job': 'blackbox-exporter', 'instance': 'blackbox:9115'}, 'value': [time.time(), '1']}]
+        self.assertFalse(r.samples_ok(migrated, labels, after, True))
+        original, labels, after = self.snapshot(migrated=False)
+        original['up'] = []
+        self.assertFalse(r.samples_ok(original, labels, after, False))
 
     def test_saved_json_manifest_labels_work_for_apply_and_rollback(self):
         for migrated in (False,True):
