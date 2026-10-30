@@ -77,13 +77,12 @@ def merged_candidate(paths):
 def candidates(asset_root, originals):
     contents = {
         FILES[0]: (asset_root / 'monitoring/compose.alloy-otel-blackbox.yaml').read_bytes(),
-        FILES[1]: (asset_root / 'monitoring/alloy-otel-blackbox.alloy').read_bytes(),
-        FILES[2]: (asset_root / 'monitoring/prometheus.alloy-blackbox.yaml').read_bytes(),
+        FILES[1]: (asset_root / 'monitoring/alloy-otel.alloy').read_bytes(),
+        FILES[2]: (asset_root / 'monitoring/prometheus.ec2.yaml').read_bytes(),
     }
-    old = b'./monitoring/alloy-otel-blackbox.alloy:'
-    if contents[FILES[0]].count(old) != 1:
+    canonical_mount = b'./monitoring/alloy-otel.alloy:/etc/alloy/config.alloy:ro'
+    if contents[FILES[0]].count(canonical_mount) != 1 or b'alloy-otel-blackbox.alloy:' in contents[FILES[0]]:
         raise RuntimeError('후보 Alloy 마운트 경로 확인 필요')
-    contents[FILES[0]] = contents[FILES[0]].replace(old, b'./monitoring/alloy-otel.alloy:')
     text = originals[FILES[3]].decode()
     if text.count('  blackbox:\n') != 1 or re.search(r'^    profiles:', text, re.M):
         raise RuntimeError('기존 Blackbox 프로필 기준 확인 필요')

@@ -82,6 +82,15 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaises(RuntimeError) as error:r.call(['docker','compose','config'])
         self.assertNotIn('SECRET',str(error.exception))
 
+    def test_candidate_uses_canonical_assets_without_duplicate_copies(self):
+        root=Path(__file__).resolve().parents[1]
+        self.assertFalse((root/'monitoring/alloy-otel-blackbox.alloy').exists())
+        self.assertFalse((root/'monitoring/prometheus.alloy-blackbox.yaml').exists())
+        result=r.candidates(root,{r.FILES[3]:b'services:\n  blackbox:\n    image: test\n'})
+        self.assertEqual(result[r.FILES[1]],(root/'monitoring/alloy-otel.alloy').read_bytes())
+        self.assertEqual(result[r.FILES[2]],(root/'monitoring/prometheus.ec2.yaml').read_bytes())
+        self.assertEqual(result[r.FILES[0]].count(b'./monitoring/alloy-otel.alloy:/etc/alloy/config.alloy:ro'),1)
+
     def test_candidate_keeps_production_receiver_and_mount_path(self):
         root=Path(__file__).resolve().parents[1]
         original={r.FILES[3]:b'services:\n  blackbox:\n    image: test\n'}

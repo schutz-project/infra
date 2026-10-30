@@ -8,7 +8,7 @@ services:
       - --server.http.listen-addr=0.0.0.0:8889
       - /etc/alloy/config.alloy
     volumes:
-      - ./monitoring/alloy-otel-blackbox.alloy:/etc/alloy/config.alloy:ro
+      - ./monitoring/alloy-otel.alloy:/etc/alloy/config.alloy:ro
       - ./monitoring/blackbox.yaml:/etc/blackbox/config.yaml:ro
       - alloy-otel-data:/var/lib/alloy/data
     secrets:

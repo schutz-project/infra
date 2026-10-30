@@ -20,7 +20,7 @@ jobs:
           printf '%s' 'ci-placeholder-not-a-production-token' > "$token"
           chmod 644 "$token"
           docker run --rm --network none \
-            -v "$PWD/monitoring/alloy-otel-blackbox.alloy:/etc/alloy/config.alloy:ro" \
+            -v "$PWD/monitoring/alloy-otel.alloy:/etc/alloy/config.alloy:ro" \
             -v "$PWD/monitoring/blackbox.yaml:/etc/blackbox/config.yaml:ro" \
             -v "$token:/run/secrets/internal-check-token:ro" \
             grafana/alloy:v1.9.1 validate /etc/alloy/config.alloy
@@ -30,4 +30,4 @@ jobs:
         run: |
           docker run --rm --network none --entrypoint promtool \
             -v "$PWD/monitoring:/etc/prometheus:ro" \
-            prom/prometheus:v3.4.1 check config /etc/prometheus/prometheus.alloy-blackbox.yaml
+            prom/prometheus:v3.4.1 check config /etc/prometheus/prometheus.ec2.yaml
