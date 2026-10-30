@@ -96,3 +96,7 @@ Terraform·네트워크·Web·Worker·DB·이전 발표 시연 환경은 이번 
 ## 운영 실행안 추가
 
 실행 스크립트·해시·고정 경로·적용/롤백 명령을 blackbox-alloy-release-plan.md에 추가했습니다. 위의 스크립트 미확정 설명은 이전 기록입니다. 로컬 안전 조건·mock 복원 테스트 14개를 통과했으나, 실제 운영 전환·systemd 자동 원복 실증은 아직 하지 않았습니다. 승인 전에는 실행하지 않습니다.
+
+## 2026-10-30 저장소 중복 파일 정리 (운영 적용 아님)
+
+현재 후보 검증 경로는 `monitoring/alloy-otel.alloy`와 `monitoring/prometheus.ec2.yaml`를 대표 파일로 사용합니다. 위 날짜별 과거 기록에 등장하는 `alloy-otel-blackbox.alloy`와 `prometheus.alloy-blackbox.yaml`는 삭제된 중복 사본의 당시 경로입니다. 이 변경은 Git 정리용이며 실제 서버 구성이나 과거 검증 결과를 변경하지 않습니다.
