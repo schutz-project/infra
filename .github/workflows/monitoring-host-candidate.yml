@@ -25,9 +25,15 @@ jobs:
         run: |
           docker compose --project-directory "$PWD" -p schutz-monitoring \
             -f monitoring/compose.prometheus-only.yaml \
+            -f monitoring/compose.monitoring-host.yaml config -q
+          docker compose --project-directory "$PWD" -p schutz-monitoring \
+            -f monitoring/compose.prometheus-only.yaml \
             -f monitoring/compose.monitoring-host-candidate.yaml config -q
       - name: Validate Prometheus candidate
         run: |
+          docker run --rm --network none --entrypoint promtool \
+            -v "$PWD/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v3.4.1 check config /etc/prometheus/prometheus.ec2.yaml
           docker run --rm --network none --entrypoint promtool \
             -v "$PWD/monitoring:/etc/prometheus:ro" \
             prom/prometheus:v3.4.1 check config /etc/prometheus/prometheus.dual-host-candidate.yaml

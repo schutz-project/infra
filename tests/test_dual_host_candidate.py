@@ -12,9 +12,28 @@ MON = ROOT / 'monitoring'
 class DualHostCandidateTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.original = yaml.safe_load((MON / 'prometheus.ec2.yaml').read_text())
+        cls.original = yaml.safe_load((ROOT / 'tests/fixtures/prometheus.ec2.pre-dual-host.yaml').read_text())
+        cls.canonical = yaml.safe_load((MON / 'prometheus.ec2.yaml').read_text())
         cls.candidate = yaml.safe_load((MON / 'prometheus.dual-host-candidate.yaml').read_text())
         cls.overlay = yaml.safe_load((MON / 'compose.monitoring-host-candidate.yaml').read_text())
+        cls.operational_overlay = yaml.safe_load((MON / 'compose.monitoring-host.yaml').read_text())
+
+    def test_canonical_config_preserves_the_deployed_dual_host_content(self):
+        self.assertEqual(self.canonical, self.candidate)
+        self.assertEqual((MON / 'prometheus.ec2.yaml').read_bytes(),
+                         (MON / 'prometheus.dual-host-candidate.yaml').read_bytes())
+
+    def test_operational_overlay_only_defines_host_exporter(self):
+        self.assertEqual(set(self.operational_overlay['services']), {'monitoring-host-metrics'})
+        self.assertEqual(self.operational_overlay['services']['monitoring-host-metrics'],
+                         self.overlay['services']['monitoring-host-metrics'])
+        self.assertEqual(self.operational_overlay['volumes'], self.overlay['volumes'])
+        self.assertEqual(self.operational_overlay['networks'], self.overlay['networks'])
+
+    def test_existing_prometheus_mount_still_uses_canonical_file(self):
+        compose = yaml.safe_load((MON / 'compose.prometheus-only.yaml').read_text())
+        self.assertIn('./monitoring/prometheus.ec2.yaml:/etc/prometheus/prometheus.yaml:ro',
+                      compose['services']['prometheus']['volumes'])
 
     def test_only_node_scrape_job_changes(self):
         def without_node(config):
