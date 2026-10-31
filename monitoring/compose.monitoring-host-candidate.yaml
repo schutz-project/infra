@@ -1,0 +1,24 @@
+# Candidate only. Paths resolve from the infra repository root.
+services:
+  monitoring-host-metrics:
+    image: grafana/alloy:v1.9.1
+    pid: host
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./monitoring/alloy.monitoring-host.alloy:/etc/alloy/config.alloy:ro
+      - /:/host:ro,rslave
+      - monitoring-host-data:/var/lib/alloy/data
+    restart: unless-stopped
+  prometheus:
+    volumes:
+      - ./monitoring/prometheus.dual-host-candidate.yaml:/etc/prometheus/prometheus.yaml:ro
+volumes:
+  monitoring-host-data:
+networks:
+  default:
+    external: true
+    name: schutz-monitoring_default

@@ -1,0 +1,12 @@
+// Candidate: host resources only. Existing OTLP and Blackbox stay unchanged.
+prometheus.exporter.unix "host" {
+  rootfs_path              = "/host"
+  procfs_path              = "/host/proc"
+  sysfs_path               = "/host/sys"
+  udev_data_path           = "/host/run/udev/data"
+  include_exporter_metrics = true
+
+  filesystem {
+    mount_points_exclude = "^/(dev|proc|sys|var/lib/docker/.+|var/lib/containers/storage/.+)($|/)"
+  }
+}

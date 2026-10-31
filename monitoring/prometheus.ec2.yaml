@@ -1,3 +1,4 @@
+# Candidate only; not used by the current release script.
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -44,4 +45,6 @@ scrape_configs:
     metrics_path: /api/v0/component/prometheus.exporter.unix.host/metrics
     static_configs:
       - targets: [10.20.10.62:9100]
-
+        labels: {server_role: service, server_name: service-server}
+      - targets: [monitoring-host-metrics:12345]
+        labels: {server_role: monitoring, server_name: monitoring-server}

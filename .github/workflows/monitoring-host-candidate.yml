@@ -1,0 +1,39 @@
+name: Monitoring host candidate validation
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  monitoring-host-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check candidate drift and role mapping
+        run: |
+          python3 -m pip install 'PyYAML==6.0.2'
+          python3 -m unittest discover -s tests -p test_dual_host_candidate.py -v
+          python3 -m unittest discover -s tests -p test_dual_host_snapshot.py -v
+      - name: Validate Alloy host exporter
+        run: |
+          docker run --rm --network none \
+            -v "$PWD/monitoring/alloy.monitoring-host.alloy:/etc/alloy/config.alloy:ro" \
+            grafana/alloy:v1.9.1 validate /etc/alloy/config.alloy
+      - name: Validate Compose overlay
+        run: |
+          docker compose --project-directory "$PWD" -p schutz-monitoring \
+            -f monitoring/compose.prometheus-only.yaml \
+            -f monitoring/compose.monitoring-host.yaml config -q
+          docker compose --project-directory "$PWD" -p schutz-monitoring \
+            -f monitoring/compose.prometheus-only.yaml \
+            -f monitoring/compose.monitoring-host-candidate.yaml config -q
+      - name: Validate Prometheus candidate
+        run: |
+          docker run --rm --network none --entrypoint promtool \
+            -v "$PWD/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v3.4.1 check config /etc/prometheus/prometheus.ec2.yaml
+          docker run --rm --network none --entrypoint promtool \
+            -v "$PWD/monitoring:/etc/prometheus:ro" \
+            prom/prometheus:v3.4.1 check config /etc/prometheus/prometheus.dual-host-candidate.yaml
