@@ -1,0 +1,6 @@
+# 기존 Grafana Compose 뒤에 병합하는 프로필 전용 추가 설정입니다.
+# 단독 실행용이 아니며, 기존 9개 배포 파일 목록에 자동 추가하지 않습니다.
+# 서버에는 같은 profiles 설정이 기존 compose.grafana-only.yaml 안에 반영돼 있습니다.
+services:
+  grafana:
+    profiles: [manual-grafana]
