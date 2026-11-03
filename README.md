@@ -79,7 +79,7 @@ Grafana 대시보드 및 Slack 알림은 프로젝트의 운영 목표에 포함
 - OTLP Import 결과: `1 imported, 0 added, 0 changed, 0 destroyed`
 - 최종 `terraform plan`: `No changes. Your infrastructure matches the configuration.`
 
-**주의:** Terraform State는 로컬에 있으며 GitHub에 올리지 않습니다. 다른 PC에서 적용하기 전에 State 관리 방식을 확인해야 합니다.
+**2026-11-03 업데이트:** Terraform State를 버전 관리가 활성화된 전용 S3 버킷(`schutz-terraform-state-2026`)으로 이전했습니다. `terraform/backend.tf`에 원격 Backend 및 `use_lockfile = true` 잠금을 설정했고, 이전 후 `terraform state list` 22개 항목과 `terraform plan` 변경 없음 결과를 확인했습니다. State 원본/백업은 GitHub에 업로드하지 않습니다. 다른 PC에서는 IAM 인증과 Backend 접근 권한이 필요합니다.
 
 **네트워크 주의:** 두 서브넷 모두 IGW 기본 경로가 있는 라우팅 테이블에 연결되어 있으므로 서비스 서브넷이 완전히 프라이빗이라고 단정하지 않습니다.
 
