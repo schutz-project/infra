@@ -1,0 +1,3 @@
+services:
+  management-web:
+    image: "schutz-management-web:pr56-release-cpu"
