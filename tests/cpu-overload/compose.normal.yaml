@@ -1,0 +1,22 @@
+# Snapshot recorded from service EC2 on 2026-11-18.
+# Not standalone: ./base.env (excluded for secrets) and external network
+# schutz-complex-test-net must exist. Verify runtime settings before deployment.
+services:
+  employee-a:
+    image: schutz-fastapi-complex:20261113-v4
+    container_name: schutz-release-test-a
+    restart: "no"
+    env_file:
+      - path: ./base.env
+        format: raw
+    environment:
+      SEARCH_CPU_WORK_ITERATIONS: "0"
+      ALLOWED_ORIGIN: "http://127.0.0.1:18767"
+    cpus: 0.75
+    mem_limit: 256m
+    networks:
+      - schutz-complex-test-net
+
+networks:
+  schutz-complex-test-net:
+    external: true
